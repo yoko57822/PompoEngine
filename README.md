@@ -25,47 +25,31 @@ The default workflow is:
 - .NET SDK `10.0.100`, fixed by `global.json`.
 - Desktop target only. Mobile, web, and console are intentionally out of scope.
 
-## Commands
+## Quick Start
+
+```bash
+dotnet restore PompoEngine.slnx
+dotnet build PompoEngine.slnx
+dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- init --path /tmp/MyVN --name MyVN --template sample --json
+dotnet run --project src/Pompo.Editor.Avalonia/Pompo.Editor.Avalonia.csproj
+```
+
+Then open `/tmp/MyVN` from the editor Dashboard, edit scenes/graphs, preview through the FNA runtime, and build from the Build panel.
+
+For the full Korean runbook, including asset management, validation, build profiles, runtime playback, release packaging, GitHub Actions artifacts, and the hosted documentation site, see [`docs/RUN_AND_USE.md`](docs/RUN_AND_USE.md).
+
+Common automation commands:
 
 ```bash
 scripts/check-release-gates.sh
-pwsh scripts/check-release-gates.ps1
-dotnet restore PompoEngine.slnx
-dotnet build PompoEngine.slnx
-dotnet test PompoEngine.slnx
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- init --path /tmp/MyVN --name MyVN --template sample --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- asset import --project /tmp/MyVN --file ./background.png --type Image --asset-id bg-main --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- asset delete --project /tmp/MyVN --asset-id unused-bg --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- asset verify --project /tmp/MyVN --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- localization report --project /tmp/MyVN --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- localization add-locale --project /tmp/MyVN --locale ja --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- localization delete-locale --project /tmp/MyVN --locale ja --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- localization repair --project /tmp/MyVN --fallback-locale ko --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- version --json
 dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- doctor --project /tmp/MyVN
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- doctor --repository --root .
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- docs site --root . --output artifacts/docs-site --json
 dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- validate --project /tmp/MyVN --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- profile list --project /tmp/MyVN
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- profile save --project /tmp/MyVN --name demo --platform MacOS --app-name MyVN --version 0.1.0 --data-only --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- build --project /tmp/MyVN --profile-file /tmp/MyVN/BuildProfiles/release.pompo-build.json --output /tmp/MyVN/Builds
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- build verify --build /tmp/MyVN/Builds/MacOS/release --require-smoke-tested-locales --require-self-contained --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- history list --project /tmp/MyVN
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- asset list --project /tmp/MyVN --type Image --json
+dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- build --project /tmp/MyVN --profile-file /tmp/MyVN/BuildProfiles/release.pompo-build.json --output /tmp/MyVN/Builds --json
 dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release package --build /tmp/MyVN/Builds/MacOS/release --output /tmp/MyVN/Releases --name MyVN-0.1.0-macos --json
 dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release verify --manifest /tmp/MyVN/Releases/MyVN-0.1.0-macos.release.json --require-smoke-tested-locales --require-self-contained --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release audit --root . --manifest /tmp/MyVN/Releases/MyVN-0.1.0-macos.release.json --require-smoke-tested-locales --require-self-contained --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release sign --manifest /tmp/MyVN/Releases/MyVN-0.1.0-macos.release.json --private-key ./release-private.pem --json
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release verify-signature --manifest /tmp/MyVN/Releases/MyVN-0.1.0-macos.release.json --public-key ./release-public.pem --json
-dotnet run --project src/Pompo.Runtime.Fna/Pompo.Runtime.Fna.csproj -- --validate-runtime
-dotnet run --project src/Pompo.Runtime.Fna/Pompo.Runtime.Fna.csproj -- --version --json
-dotnet run --project src/Pompo.Runtime.Fna/Pompo.Runtime.Fna.csproj -- --play-ir /tmp/MyVN/Builds/MacOS/release/Data/graph_intro.pompo-ir.json
-dotnet run --project src/Pompo.Runtime.Fna/Pompo.Runtime.Fna.csproj -- --play-ir /tmp/MyVN/Builds/MacOS/release/Data/graph_intro.pompo-ir.json --choices 1 --json-trace
-dotnet run --project src/Pompo.Runtime.Fna/Pompo.Runtime.Fna.csproj -- --play-ir /tmp/MyVN/Builds/MacOS/release/Data/graph_intro.pompo-ir.json --locale ko --choices 1 --json-trace
-dotnet run --project src/Pompo.Runtime.Fna/Pompo.Runtime.Fna.csproj -- --run-ir /tmp/MyVN/Builds/MacOS/release/Data/graph_intro.pompo-ir.json --choices 1 --saves /tmp/MyVN/Saves
-dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- save list --saves /tmp/MyVN/Saves --json
-dotnet run --project src/Pompo.Editor.Avalonia/Pompo.Editor.Avalonia.csproj
 ```
+
+The current public documentation site is published at <https://yoko57822.github.io/PompoEngine/>.
 
 ## Current Milestone
 
