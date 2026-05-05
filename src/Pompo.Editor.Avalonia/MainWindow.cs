@@ -282,12 +282,14 @@ public sealed class MainWindow : Window
             Margin = new global::Avalonia.Thickness(0, 10, 0, 0)
         };
 
-        var workflow = Card("Workflow", ListPanel(
-            "1. Dashboard: create or open a project.",
-            "2. Workspace: author resources, scenes, graphs, preview, and diagnostics.",
-            "3. Theme: edit runtime UI theme, skin, layout, and animation.",
-            "4. Build: create standalone Windows, macOS, or Linux output.",
-            "5. Release: package, verify, audit, and sign build output before publishing."));
+        var workflow = Card("Editor VN Walkthrough", ListPanel(
+            "1. Dashboard: click New Sample to start from a working VN, or Open Project to load an existing project folder.",
+            "2. Workspace: click Graph Focus, choose a graph, then add Dialogue, Narration, Choice, ChangeBackground, ShowCharacter, PlayBgm, SavePoint, and EndScene nodes.",
+            "3. Graph: click a node, edit Text or Raw Properties in Inspector, then click Apply Properties for raw JSON changes.",
+            "4. Graph flow: click the source node, then click the target node on the canvas to connect them. Use Set Source and Connect if you prefer the buttons.",
+            "5. Scene: choose the scene Start Graph, Background Asset, character placements, then click Save Scene.",
+            "6. Preview: run the selected graph through the isolated FNA runtime and review lines, choices, variables, and audio state.",
+            "7. Build: choose the release profile and platform, then Build Selected or Build Verified Release."));
         Grid.SetColumn(workflow, 0);
         Grid.SetRow(workflow, 0);
         grid.Children.Add(workflow);
