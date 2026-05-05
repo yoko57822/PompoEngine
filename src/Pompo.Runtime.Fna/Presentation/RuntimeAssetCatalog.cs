@@ -76,7 +76,7 @@ public sealed class RuntimeAssetCatalogLoader
                 continue;
             }
 
-            assetPaths[asset.AssetId] = Path.Combine(contentRoot, asset.SourcePath);
+            assetPaths[asset.AssetId] = Path.GetFullPath(Path.Combine(contentRoot, asset.SourcePath));
         }
 
         var characterSprites = new Dictionary<string, string>(StringComparer.Ordinal);
