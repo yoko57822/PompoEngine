@@ -350,14 +350,39 @@ public sealed class MainWindow : Window
         };
 
         var toolbar = CreateWorkspaceToolbar();
+        toolbar.Bind(
+            IsVisibleProperty,
+            new Binding("HasProject")
+            {
+                FallbackValue = false,
+                TargetNullValue = false
+            });
         Grid.SetRow(toolbar, 0);
         root.Children.Add(toolbar);
+
+        var emptyState = CreateWorkspaceEmptyState();
+        emptyState.Bind(
+            IsVisibleProperty,
+            new Binding("NoProjectLoaded")
+            {
+                FallbackValue = true,
+                TargetNullValue = true
+            });
+        Grid.SetRow(emptyState, 1);
+        root.Children.Add(emptyState);
 
         var workspace = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions(_viewModel.WorkspaceColumnDefinitions),
             RowDefinitions = new RowDefinitions(_viewModel.WorkspaceRowDefinitions)
         };
+        workspace.Bind(
+            IsVisibleProperty,
+            new Binding("HasProject")
+            {
+                FallbackValue = false,
+                TargetNullValue = false
+            });
         _viewModel.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName is nameof(ProjectWorkspaceViewModel.WorkspaceColumnDefinitions) or
@@ -381,27 +406,84 @@ public sealed class MainWindow : Window
         return root;
     }
 
+    private Control CreateWorkspaceEmptyState()
+    {
+        var createSample = PrimaryButton("New Sample Project");
+        createSample.Click += async (_, _) => await CreateProjectFromFolderAsync(sampleTemplate: true);
+        var createMinimal = CommandButton("New Minimal Project");
+        createMinimal.Click += async (_, _) => await CreateProjectFromFolderAsync(sampleTemplate: false);
+        var openProject = CommandButton("Open Project");
+        openProject.Click += async (_, _) => await OpenProjectFromFolderAsync();
+
+        var content = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("1.15*,1*"),
+            Margin = new global::Avalonia.Thickness(18),
+            Children =
+            {
+                Card(
+                    "Start a visual novel project",
+                    new StackPanel
+                    {
+                        Spacing = 14,
+                        Children =
+                        {
+                            new TextBlock
+                            {
+                                Text = "Workspace is hidden until a Pompo project is open. Start with the sample project if you want a working VN you can edit immediately.",
+                                Foreground = MutedText,
+                                TextWrapping = TextWrapping.Wrap
+                            },
+                            new StackPanel
+                            {
+                                Orientation = Orientation.Horizontal,
+                                Spacing = 8,
+                                Children =
+                                {
+                                    createSample,
+                                    createMinimal,
+                                    openProject
+                                }
+                            },
+                            BoundText("StatusMessage", "No project loaded.")
+                        }
+                    }),
+                Card(
+                    "First VN editing loop",
+                    ListPanel(
+                        "1. New Sample creates scenes, characters, assets, graphs, choices, and audio examples.",
+                        "2. Workspace > Graph Focus edits the story flow.",
+                        "3. Select a graph node, then edit Text or Raw Properties in Inspector.",
+                        "4. Click nodes on the canvas in source-to-target order to connect flow.",
+                        "5. Scene chooses Start Graph, Background Asset, and character placements.",
+                        "6. Preview runs the graph through the FNA runtime.",
+                        "7. Build creates standalone Windows, macOS, or Linux output."))
+            }
+        };
+        Grid.SetColumn(content.Children[0], 0);
+        Grid.SetColumn(content.Children[1], 1);
+
+        return content;
+    }
+
     private Control CreateWorkspaceToolbar()
     {
-        var presetButtons = new StackPanel
+        var presetButtons = new WrapPanel
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8
+            Orientation = Orientation.Horizontal
         };
 
         foreach (var preset in _viewModel.WorkspaceLayoutPresets)
         {
             var button = CommandButton(preset.DisplayName);
+            button.Margin = new global::Avalonia.Thickness(0, 0, 8, 8);
             button.Click += (_, _) => _viewModel.ApplyWorkspaceLayoutPreset(preset.PresetId);
             presetButtons.Children.Add(button);
         }
-        Grid.SetColumn(presetButtons, 2);
 
-        var panelToggles = new StackPanel
+        var panelToggles = new WrapPanel
         {
             Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            Margin = new global::Avalonia.Thickness(12, 0, 0, 0),
             Children =
             {
                 WorkspacePanelToggle("Project", "WorkspaceProjectPanelVisible"),
@@ -411,29 +493,40 @@ public sealed class MainWindow : Window
                 WorkspacePanelToggle("Console", "WorkspaceConsolePanelVisible")
             }
         };
-        Grid.SetColumn(panelToggles, 3);
         var saveWorkspace = CommandButton("Save Workspace");
+        saveWorkspace.Margin = new global::Avalonia.Thickness(0, 0, 8, 8);
         saveWorkspace.Click += async (_, _) => await RunEditorActionAsync(() => _viewModel.SaveWorkspacePreferencesAsync());
-        Grid.SetColumn(saveWorkspace, 4);
         var detachTools = CommandButton("Detach Tools");
+        detachTools.Margin = new global::Avalonia.Thickness(0, 0, 8, 8);
         detachTools.Click += (_, _) => OpenDetachedWorkspaceTools();
-        Grid.SetColumn(detachTools, 5);
 
-        var focusButtons = new StackPanel
+        var focusButtons = new WrapPanel
         {
             Orientation = Orientation.Horizontal,
-            Spacing = 8,
             Margin = new global::Avalonia.Thickness(0, 8, 0, 0)
         };
         foreach (var target in _viewModel.WorkspaceFocusTargets)
         {
             var button = CommandButton(target.DisplayName);
+            button.Margin = new global::Avalonia.Thickness(0, 0, 8, 8);
             button.Click += (_, _) => _viewModel.FocusWorkspaceTarget(target.TargetId);
             focusButtons.Children.Add(button);
         }
-        Grid.SetRow(focusButtons, 1);
-        Grid.SetColumn(focusButtons, 0);
-        Grid.SetColumnSpan(focusButtons, 6);
+
+        var toolButtons = new WrapPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Children =
+            {
+                saveWorkspace,
+                detachTools
+            }
+        };
+
+        foreach (var child in panelToggles.Children.OfType<CheckBox>())
+        {
+            child.Margin = new global::Avalonia.Thickness(0, 0, 12, 8);
+        }
 
         return new Border
         {
@@ -442,24 +535,29 @@ public sealed class MainWindow : Window
             BorderThickness = new global::Avalonia.Thickness(1),
             Padding = new global::Avalonia.Thickness(10),
             Margin = new global::Avalonia.Thickness(0, 0, 0, 8),
-            Child = new Grid
+            Child = new StackPanel
             {
-                RowDefinitions = new RowDefinitions("Auto,Auto"),
-                ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto,Auto,Auto"),
+                Spacing = 8,
                 Children =
                 {
-                    new TextBlock
+                    new Grid
                     {
-                        Text = "Workspace Presets",
-                        FontWeight = FontWeight.Bold,
-                        VerticalAlignment = VerticalAlignment.Center,
-                        Margin = new global::Avalonia.Thickness(0, 0, 12, 0)
+                        ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+                        Children =
+                        {
+                            new TextBlock
+                            {
+                                Text = "Workspace",
+                                FontWeight = FontWeight.Bold,
+                                VerticalAlignment = VerticalAlignment.Center,
+                                Margin = new global::Avalonia.Thickness(0, 0, 12, 0)
+                            },
+                            WorkspacePresetDescription()
+                        }
                     },
-                    WorkspacePresetDescription(),
                     presetButtons,
                     panelToggles,
-                    saveWorkspace,
-                    detachTools,
+                    toolButtons,
                     focusButtons
                 }
             }
@@ -3470,6 +3568,43 @@ public sealed class MainWindow : Window
         };
     }
 
+    private static Control PanelCard(string title, Control body)
+    {
+        var grid = new Grid
+        {
+            RowDefinitions = new RowDefinitions("Auto,*")
+        };
+        var header = new TextBlock
+        {
+            Text = title,
+            FontWeight = FontWeight.Bold,
+            FontSize = 16,
+            Margin = new global::Avalonia.Thickness(0, 0, 0, 12)
+        };
+        Grid.SetRow(header, 0);
+        grid.Children.Add(header);
+
+        var scroller = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = body
+        };
+        Grid.SetRow(scroller, 1);
+        grid.Children.Add(scroller);
+
+        return new Border
+        {
+            Margin = new global::Avalonia.Thickness(6),
+            Padding = new global::Avalonia.Thickness(16),
+            BorderBrush = BorderColor,
+            BorderThickness = new global::Avalonia.Thickness(1),
+            Background = PanelBackground,
+            CornerRadius = new global::Avalonia.CornerRadius(8),
+            Child = grid
+        };
+    }
+
     private static Control ListPanel(params string[] lines)
     {
         var stack = new StackPanel { Spacing = 8 };
@@ -3578,7 +3713,7 @@ public sealed class MainWindow : Window
         int columnSpan = 1,
         int rowSpan = 1)
     {
-        var panel = Card(title, body);
+        var panel = PanelCard(title, body);
         Grid.SetColumn(panel, column);
         Grid.SetRow(panel, row);
         Grid.SetColumnSpan(panel, columnSpan);

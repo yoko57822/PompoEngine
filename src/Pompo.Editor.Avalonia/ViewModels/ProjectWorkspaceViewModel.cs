@@ -273,6 +273,8 @@ public sealed class ProjectWorkspaceViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(Summary));
             OnPropertyChanged(nameof(Diagnostics));
             OnPropertyChanged(nameof(ProjectRoot));
+            OnPropertyChanged(nameof(HasProject));
+            OnPropertyChanged(nameof(NoProjectLoaded));
             OnPropertyChanged(nameof(PreviewLocaleOptions));
             OnPropertyChanged(nameof(LocalizationLocales));
             OnPropertyChanged(nameof(LocalizationEntries));
@@ -320,6 +322,10 @@ public sealed class ProjectWorkspaceViewModel : INotifyPropertyChanged
     public ProjectDashboardSummary? Summary => State?.Summary;
 
     public string? ProjectRoot => State?.Summary.ProjectRoot;
+
+    public bool HasProject => State is not null;
+
+    public bool NoProjectLoaded => State is null;
 
     public IReadOnlyList<EditorDiagnostic> Diagnostics => State?.Diagnostics ?? [];
 
