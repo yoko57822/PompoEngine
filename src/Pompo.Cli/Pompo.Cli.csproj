@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pompo.Core\Pompo.Core.csproj" />
+    <ProjectReference Include="..\Pompo.VisualScripting\Pompo.VisualScripting.csproj" />
+    <ProjectReference Include="..\Pompo.Build\Pompo.Build.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

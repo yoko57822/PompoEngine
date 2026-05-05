@@ -1,0 +1,13 @@
+bin/
+obj/
+TestResults/
+.vs/
+.vscode/
+*.user
+*.suo
+*.log
+.DS_Store
+Thumbs.db
+Desktop.ini
+artifacts/
+dist/

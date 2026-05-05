@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build and test
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore PompoEngine.slnx
+
+      - name: Build
+        run: dotnet build PompoEngine.slnx --no-restore
+
+      - name: Test
+        run: dotnet test PompoEngine.slnx --no-build --logger trx
+
+      - name: Repository doctor
+        run: |
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- version --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- docs site --root . --output artifacts/docs-site --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- doctor --repository --root .
+
+      - name: CLI smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          project_dir="$(mktemp -d)"
+          asset_file="$(mktemp)"
+          printf "asset-v1" > "$asset_file"
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- init --path "$project_dir" --name SmokeVN --template sample --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- asset import --project "$project_dir" --file "$asset_file" --type Image --asset-id smoke-bg --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- asset verify --project "$project_dir" --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- localization report --project "$project_dir" --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- doctor --project "$project_dir"
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- validate --project "$project_dir" --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- profile list --project "$project_dir" --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- build --project "$project_dir" --profile-file "$project_dir/BuildProfiles/release.pompo-build.json" --output "$project_dir/Builds"
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- build verify --build "$project_dir/Builds/MacOS/release" --require-smoke-tested-locales --require-self-contained --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- history list --project "$project_dir" --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release package --build "$project_dir/Builds/MacOS/release" --output "$project_dir/Releases" --name SmokeVN-0.1.0-macos --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release verify --manifest "$project_dir/Releases/SmokeVN-0.1.0-macos.release.json" --require-smoke-tested-locales --require-self-contained --json
+          dotnet new console --framework net10.0 --output "$project_dir/keygen" >/dev/null
+          cat > "$project_dir/keygen/Program.cs" <<'CS'
+          using System.Security.Cryptography;
+          using var rsa = RSA.Create(2048);
+          File.WriteAllText(args[0], rsa.ExportRSAPrivateKeyPem());
+          File.WriteAllText(args[1], rsa.ExportRSAPublicKeyPem());
+          CS
+          dotnet run --project "$project_dir/keygen" -- "$project_dir/release-private.pem" "$project_dir/release-public.pem"
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release sign --manifest "$project_dir/Releases/SmokeVN-0.1.0-macos.release.json" --private-key "$project_dir/release-private.pem" --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release verify-signature --manifest "$project_dir/Releases/SmokeVN-0.1.0-macos.release.json" --public-key "$project_dir/release-public.pem" --json
+          test -x "$project_dir/Builds/MacOS/release/Runtime/Pompo.Runtime.Fna"
+          test -f "$project_dir/Builds/MacOS/release/Data/graph_intro.pompo-ir.json"
+          test -f "$project_dir/Builds/MacOS/release/Data/graph_cafe.pompo-ir.json"
+          test -f "$project_dir/Builds/MacOS/release/Data/graph_cafe_bonus.pompo-ir.json"
+          test -f "$project_dir/Builds/MacOS/release/Data/graph_rooftop.pompo-ir.json"
+          test -f "$project_dir/Releases/SmokeVN-0.1.0-macos.zip"
+          test -f "$project_dir/Releases/SmokeVN-0.1.0-macos.zip.sha256"
+          test -f "$project_dir/Releases/SmokeVN-0.1.0-macos.zip.sig"
+          test -f "$project_dir/Releases/SmokeVN-0.1.0-macos.release.json"
+          grep "SmokeVN-0.1.0-macos.zip" "$project_dir/Releases/SmokeVN-0.1.0-macos.zip.sha256"
+          trace="$("$project_dir/Builds/MacOS/release/Runtime/Pompo.Runtime.Fna" --play-ir "$project_dir/Builds/MacOS/release/Data/graph_intro.pompo-ir.json" --choices 1 --json-trace)"
+          printf "%s" "$trace" | grep '"kind": "choice"'
+          printf "%s" "$trace" | grep '"selectedChoice": "Go to the rooftop"'
+          printf "%s" "$trace" | grep '"route": "rooftop"'
+          printf "%s" "$trace" | grep '"completed": true'
+
+      - name: Runtime smoke
+        run: dotnet run --project src/Pompo.Runtime.Fna/Pompo.Runtime.Fna.csproj -- --validate-runtime

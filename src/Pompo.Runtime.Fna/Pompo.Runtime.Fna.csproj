@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pompo.Core\Pompo.Core.csproj" />
+    <ProjectReference Include="..\Pompo.Scripting\Pompo.Scripting.csproj" />
+    <ProjectReference Include="..\Pompo.VisualScripting\Pompo.VisualScripting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FNA.NET" Version="2.2.11.2602" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Pompo.Core\Pompo.Core.csproj" />
+    <ProjectReference Include="..\..\src\Pompo.Cli\Pompo.Cli.csproj" />
+    <ProjectReference Include="..\..\src\Pompo.VisualScripting\Pompo.VisualScripting.csproj" />
+    <ProjectReference Include="..\..\src\Pompo.Build\Pompo.Build.csproj" />
+    <ProjectReference Include="..\..\src\Pompo.Scripting\Pompo.Scripting.csproj" />
+    <ProjectReference Include="..\..\src\Pompo.Editor.Avalonia\Pompo.Editor.Avalonia.csproj" />
+    <ProjectReference Include="..\..\src\Pompo.Runtime.Fna\Pompo.Runtime.Fna.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,166 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example 0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: MacOS
+            runner: macos-latest
+            suffix: macos
+          - platform: Linux
+            runner: ubuntu-latest
+            suffix: linux
+          - platform: Windows
+            runner: windows-latest
+            suffix: windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore PompoEngine.slnx
+
+      - name: Build
+        run: dotnet build PompoEngine.slnx --no-restore
+
+      - name: Test
+        run: dotnet test PompoEngine.slnx --no-build --logger trx
+
+      - name: Repository doctor
+        run: |
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- version --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- doctor --repository --root .
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $version = "${{ inputs.version }}"
+          } else {
+            $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version"
+
+      - name: Package sample runtime
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+          SUFFIX: ${{ matrix.suffix }}
+        run: |
+          $projectDir = Join-Path $env:RUNNER_TEMP "PompoSample"
+          $releaseDir = Join-Path $env:RUNNER_TEMP "PompoRelease"
+          $packageName = "PompoEngineSample-$env:VERSION-$env:SUFFIX"
+          Remove-Item -Path $projectDir, $releaseDir -Recurse -Force -ErrorAction SilentlyContinue
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- init --path $projectDir --name PompoEngineSample --template sample --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- localization report --project $projectDir --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- doctor --project $projectDir
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- validate --project $projectDir --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- profile list --project $projectDir --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- build --project $projectDir --profile-file (Join-Path $projectDir "BuildProfiles/release.pompo-build.json") --platform $env:PLATFORM --version $env:VERSION --output (Join-Path $projectDir "Builds") --json
+          $buildOutput = Join-Path (Join-Path (Join-Path $projectDir "Builds") $env:PLATFORM) "release"
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- build verify --build $buildOutput --require-smoke-tested-locales --require-self-contained --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- history list --project $projectDir --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release package --build $buildOutput --output $releaseDir --name $packageName --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release verify --manifest (Join-Path $releaseDir "$packageName.release.json") --require-smoke-tested-locales --require-self-contained --json
+          Add-Content -Path $env:GITHUB_ENV -Value "release_dir=$releaseDir"
+          Add-Content -Path $env:GITHUB_ENV -Value "package_name=$packageName"
+
+      - name: Require paired signing keys
+        shell: pwsh
+        env:
+          RELEASE_PRIVATE_KEY: ${{ secrets.POMPO_RELEASE_PRIVATE_KEY_PEM }}
+          RELEASE_PUBLIC_KEY: ${{ secrets.POMPO_RELEASE_PUBLIC_KEY_PEM }}
+        run: |
+          $hasPrivate = -not [string]::IsNullOrWhiteSpace($env:RELEASE_PRIVATE_KEY)
+          $hasPublic = -not [string]::IsNullOrWhiteSpace($env:RELEASE_PUBLIC_KEY)
+          if (($hasPrivate -and -not $hasPublic) -or (-not $hasPrivate -and $hasPublic)) {
+            throw "POMPO_RELEASE_PRIVATE_KEY_PEM and POMPO_RELEASE_PUBLIC_KEY_PEM must be configured together."
+          }
+
+      - name: Sign release archive
+        shell: pwsh
+        env:
+          RELEASE_PRIVATE_KEY: ${{ secrets.POMPO_RELEASE_PRIVATE_KEY_PEM }}
+          RELEASE_PUBLIC_KEY: ${{ secrets.POMPO_RELEASE_PUBLIC_KEY_PEM }}
+        run: |
+          $hasPrivate = -not [string]::IsNullOrWhiteSpace($env:RELEASE_PRIVATE_KEY)
+          $hasPublic = -not [string]::IsNullOrWhiteSpace($env:RELEASE_PUBLIC_KEY)
+          if (-not $hasPrivate -and -not $hasPublic) {
+            Write-Host "Release signing skipped because signing secrets are not configured."
+            return
+          }
+          $privateKey = Join-Path $env:RUNNER_TEMP "pompo-release-private.pem"
+          $publicKey = Join-Path $env:RUNNER_TEMP "pompo-release-public.pem"
+          [IO.File]::WriteAllText($privateKey, $env:RELEASE_PRIVATE_KEY + [Environment]::NewLine)
+          [IO.File]::WriteAllText($publicKey, $env:RELEASE_PUBLIC_KEY + [Environment]::NewLine)
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release sign --manifest (Join-Path $env:release_dir "$env:package_name.release.json") --private-key $privateKey --json
+          dotnet run --project src/Pompo.Cli/Pompo.Cli.csproj -- release verify-signature --manifest (Join-Path $env:release_dir "$env:package_name.release.json") --public-key $publicKey --json
+
+      - name: Collect release files
+        shell: pwsh
+        run: |
+          $uploadDir = Join-Path $env:RUNNER_TEMP "PompoUpload"
+          Remove-Item -Path $uploadDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $uploadDir | Out-Null
+          foreach ($extension in ".zip", ".zip.sha256", ".zip.sig", ".release.json") {
+            $path = Join-Path $env:release_dir "$env:package_name$extension"
+            if (Test-Path $path) {
+              Copy-Item $path $uploadDir
+            }
+          }
+          Add-Content -Path $env:GITHUB_ENV -Value "upload_dir=$uploadDir"
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.package_name }}
+          path: ${{ env.upload_dir }}/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: package
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    permissions:
+      contents: write
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: release-artifacts/*
+          generate_release_notes: true

@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Pompo.Build/Pompo.Build.csproj" />
+    <Project Path="src/Pompo.Cli/Pompo.Cli.csproj" />
+    <Project Path="src/Pompo.Core/Pompo.Core.csproj" />
+    <Project Path="src/Pompo.Editor.Avalonia/Pompo.Editor.Avalonia.csproj" />
+    <Project Path="src/Pompo.Runtime.Fna/Pompo.Runtime.Fna.csproj" />
+    <Project Path="src/Pompo.Scripting/Pompo.Scripting.csproj" />
+    <Project Path="src/Pompo.VisualScripting/Pompo.VisualScripting.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Pompo.Tests/Pompo.Tests.csproj" />
+  </Folder>
+</Solution>
