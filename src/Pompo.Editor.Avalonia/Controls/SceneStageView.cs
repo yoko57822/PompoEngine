@@ -185,14 +185,14 @@ public sealed class SceneStageView : Canvas
         double y,
         IBrush foreground,
         double fontSize,
-        FontWeight fontWeight = default)
+        FontWeight? fontWeight = null)
     {
         var textBlock = new TextBlock
         {
             Text = text,
             Foreground = foreground,
             FontSize = fontSize,
-            FontWeight = fontWeight,
+            FontWeight = fontWeight ?? FontWeight.Normal,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxWidth = StageWidth - x - 12
         };

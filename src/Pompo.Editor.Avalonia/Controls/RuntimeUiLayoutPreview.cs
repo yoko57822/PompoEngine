@@ -536,7 +536,7 @@ public sealed class RuntimeUiLayoutPreview : Canvas
         double y,
         IBrush foreground,
         double fontSize,
-        FontWeight fontWeight = default,
+        FontWeight? fontWeight = null,
         double? maxWidth = null)
     {
         var textBlock = new TextBlock
@@ -544,7 +544,7 @@ public sealed class RuntimeUiLayoutPreview : Canvas
             Text = text,
             Foreground = foreground,
             FontSize = fontSize,
-            FontWeight = fontWeight,
+            FontWeight = fontWeight ?? FontWeight.Normal,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxWidth = maxWidth ?? PreviewWidth - x - 12
         };
